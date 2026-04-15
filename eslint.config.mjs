@@ -16,7 +16,7 @@ export default withNuxt(
       '.output/**',
       'node_modules/**',
       '.nitro/**',
-      'coverage/**'
-    ]
-  }
+      'coverage/**',
+    ],
+  },
 )
