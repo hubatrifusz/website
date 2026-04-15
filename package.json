@@ -10,7 +10,8 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@nuxt/eslint": "1.15.2",
@@ -19,6 +20,7 @@
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "prettier": "3.8.3",
     "typescript": "^6.0.2"
   }
