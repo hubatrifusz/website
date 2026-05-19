@@ -10,13 +10,6 @@ export default withNuxt(
     },
   },
   {
-    ignores: [
-      'dist/**',
-      '.nuxt/**',
-      '.output/**',
-      'node_modules/**',
-      '.nitro/**',
-      'coverage/**',
-    ],
+    ignores: ['dist/**', '.nuxt/**', '.output/**', 'node_modules/**', '.nitro/**', 'coverage/**'],
   },
 )
