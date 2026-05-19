@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Development Database
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: postgres_dev
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: development
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+
+  # Isolated Test Database
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: postgres_test
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: testing
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+
+volumes:
+  pgdata_dev:
+  pgdata_test:
