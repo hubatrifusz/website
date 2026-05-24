@@ -2,7 +2,10 @@
   // https://nuxt.com/docs/guide/concepts/typescript
   "files": [],
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "~/*": ["./*"]
+    }
   },
   "references": [
     {
