@@ -11,13 +11,14 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "vitest run"
   },
   "dependencies": {
     "@nuxt/eslint": "1.15.2",
     "@nuxt/ui": "^4.7.1",
     "@tailwindcss/vite": "^4.3.0",
-    "bcrypt": "^6.0.0",
+    "arctic": "^3.7.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "nuxt": "^4.4.5",
@@ -28,7 +29,6 @@
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.0.3",
-    "@types/bcrypt": "^6.0.0",
     "@types/node": "^25.9.0",
     "@types/pg": "^8.20.0",
     "@vitest/ui": "4.1.6",

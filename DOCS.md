@@ -2,17 +2,17 @@
 
 ## Table of Contents
 
-1. [Project Overview & Tech Stack](#1-project-overview--tech-stack)
-2. [Getting Started / Installation](#2-getting-started--installation)
-3. [Database Architecture](#3-database-architecture)
-4. [API Endpoint Reference](#4-api-endpoint-reference)
-5. [Testing Strategy](#5-testing-strategy)
+1. [Tech Stack Overview](#1-tech-stack-overview)
+2. [Getting Started](#2-getting-started)
+3. [Database](#3-database)
+4. [Architecture and Auth Flow](#4-architecture-and-auth-flow)
+5. [Testing](#5-testing)
 
 ---
 
-## 1. Project Overview & Tech Stack
+## 1. Tech Stack Overview
 
-This is a full-stack web application built on **Nuxt 4**, using its unified file-based routing to serve both the Vue frontend and a Nitro-powered API backend from a single project. The server layer connects directly to a **PostgreSQL** database via **Drizzle ORM**, keeping database access type-safe and migration-driven without a separate backend service.
+This is a full-stack web application built on **Nuxt 4**, using its unified file-based routing to serve both the Vue frontend and a Nitro-powered API backend from a single project. Authentication is handled entirely through **Google OAuth 2.0** via the Arctic library — there are no password-based accounts. The server layer connects directly to a **PostgreSQL** database via **Drizzle ORM**, keeping database access type-safe and migration-driven without a separate backend service.
 
 ### Technology Stack
 
@@ -24,7 +24,7 @@ This is a full-stack web application built on **Nuxt 4**, using its unified file
 | Database             | PostgreSQL                | `16` (Alpine)       |
 | ORM                  | Drizzle ORM               | `^0.45.2`           |
 | PostgreSQL Driver    | `pg` (node-postgres)      | `^8.21.0`           |
-| Password Hashing     | bcrypt                    | `^6.0.0`            |
+| OAuth 2.0            | Arctic                    | `^3.7.0`            |
 | Testing              | Vitest + @nuxt/test-utils | `^4.1.6` / `^4.0.3` |
 | Language             | TypeScript                | `^6.0.3`            |
 | Linting              | ESLint (@nuxt/eslint)     | `1.15.2`            |
@@ -33,48 +33,47 @@ This is a full-stack web application built on **Nuxt 4**, using its unified file
 
 ---
 
-## 2. Getting Started / Installation
+## 2. Getting Started
 
 ### Prerequisites
 
 - **Node.js** v20+ (LTS recommended)
 - **pnpm** v9+
 - **Docker** and **Docker Compose** (for local databases)
+- A **Google Cloud project** with an OAuth 2.0 client configured
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/hubatrifusz/website.git
-cd website
-```
-
-### 2. Install Dependencies
+### 1. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### 3. Configure Environment Variables
+### 2. Configure Environment Variables
 
 The project uses two environment files — one for local development and one for the test suite.
 
-**Create `.env` for the development server:**
+**`.env` — development server:**
 
 ```env
 DATABASE_URL="postgres://admin:admin@localhost:5432/development"
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+REDIRECT_URI="http://localhost:3000/api/auth/callback"
 ```
 
-**Create `.env.test` for the test suite:**
+**`.env.test` — test suite:**
 
 ```env
 DATABASE_URL="postgres://admin:admin@localhost:5433/testing"
 ```
 
-> The dev and test databases run on different ports (`5432` and `5433`) to ensure complete isolation. Never point the test suite at the development database.
+The `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `REDIRECT_URI` values for the test suite are injected programmatically by `test/setup.ts` before any module loads, so they do not need to appear in `.env.test`.
 
-### 4. Start the Databases
+> Never point the test suite at the development database. The two databases run on different ports (`5432` and `5433`) to enforce complete isolation.
 
-Use Docker Compose to spin up both PostgreSQL instances simultaneously:
+### 3. Start the Databases
+
+Use Docker Compose to spin up both PostgreSQL instances:
 
 ```bash
 docker compose up -d
@@ -82,42 +81,40 @@ docker compose up -d
 
 This starts two containers:
 
-- `postgres_dev` — development database on port `5432`
-- `postgres_test` — isolated test database on port `5433`
+| Container       | Port   | Database      | Used by     |
+| --------------- | ------ | ------------- | ----------- |
+| `postgres_dev`  | `5432` | `development` | `pnpm dev`  |
+| `postgres_test` | `5433` | `testing`     | `pnpm test` |
 
-### 5. Run Database Migrations
+### 4. Run Database Migrations
 
-Apply the Drizzle schema to both databases.
-
-**Development database:**
+Apply the Drizzle schema to the development database:
 
 ```bash
 pnpm drizzle-kit migrate
 ```
 
-**Test database** (pass the test env explicitly):
+To migrate the test database, pass the test environment file explicitly:
 
 ```bash
 dotenv -e .env.test -- pnpm drizzle-kit migrate
 ```
 
-> If `dotenv` CLI is not available globally, run `npx dotenv-cli -e .env.test -- pnpm drizzle-kit migrate`.
-
-### 6. Start the Development Server
+### 5. Start the Development Server
 
 ```bash
 pnpm dev
 ```
 
-The application will be available at `http://localhost:3000`.
+The application is available at `http://localhost:3000`.
 
 ---
 
-## 3. Database Architecture
+## 3. Database
 
-### How Drizzle ORM Integrates with Nuxt
+### Drizzle ORM Integration
 
-Drizzle ORM is initialised once as a server-side singleton in [server/utils/db.ts](server/utils/db.ts). Because Nitro auto-imports everything from `server/utils/`, the exported `db` instance is available in every API route handler without an explicit import.
+Drizzle ORM is initialised once as a server-side singleton in `server/utils/db.ts`. Nitro auto-imports everything from `server/utils/`, so the exported `db` instance is available in every API route handler without an explicit import statement.
 
 ```ts
 // server/utils/db.ts
@@ -132,43 +129,46 @@ const pool = new pg.Pool({
 export const db = drizzle(pool, { schema })
 ```
 
-The connection string is read from `process.env.DATABASE_URL` at startup, so the same codebase connects to the dev database in development and the test database during the test suite — the environment variable is the only switch.
+The connection string is read from `process.env.DATABASE_URL` at startup. Switching between environments is entirely controlled by which `.env` file is active.
 
-### Schema Definition
+### Schema
 
-All table schemas live in [server/db/schema.ts](server/db/schema.ts) and are consumed by both the runtime (`db`) and Drizzle Kit (for migrations via [drizzle.config.ts](drizzle.config.ts)).
+All table definitions live in `server/db/schema.ts` and are consumed by both the runtime (`db`) and Drizzle Kit (for migrations via `drizzle.config.ts`). Migrations are generated into the `./drizzle` directory.
 
 #### `users` Table
 
-| Column         | DB Name         | Type           | Constraints                              |
-| -------------- | --------------- | -------------- | ---------------------------------------- |
-| `userId`       | `user_id`       | `uuid`         | Primary key, `DEFAULT gen_random_uuid()` |
-| `firstName`    | `first_name`    | `varchar(255)` | `NOT NULL`                               |
-| `lastName`     | `last_name`     | `varchar(255)` | `NOT NULL`                               |
-| `email`        | `email`         | `varchar(255)` | `UNIQUE`, `NOT NULL`                     |
-| `role`         | `role`          | `varchar(50)`  | `NOT NULL`, `DEFAULT 'user'`             |
-| `passwordHash` | `password_hash` | `varchar(255)` | `NOT NULL`                               |
-| `isVerified`   | `is_verified`   | `boolean`      | `NOT NULL`, `DEFAULT false`              |
-| `createdAt`    | `created_at`    | `timestamptz`  | `NOT NULL`, `DEFAULT NOW()`              |
-| `updatedAt`    | `updated_at`    | `timestamptz`  | `NOT NULL`, `DEFAULT NOW()`              |
+| Column               | DB Column              | Type          | Constraints                                   |
+| -------------------- | ---------------------- | ------------- | --------------------------------------------- |
+| `userId`             | `user_id`              | `uuid`        | Primary key, `DEFAULT gen_random_uuid()`      |
+| `name`               | `name`                 | `text`        | Nullable                                      |
+| `email`              | `email`                | `text`        | `UNIQUE`, `NOT NULL`                          |
+| `role`               | `role`                 | `text`        | `NOT NULL`, `DEFAULT 'user'`                  |
+| `googleId`           | `google_id`            | `text`        | `UNIQUE`, nullable                            |
+| `googleRefreshToken` | `google_refresh_token` | `text`        | Nullable                                      |
+| `email_verified`     | `email_verified`       | `boolean`     | `NOT NULL`, `DEFAULT false`                   |
+| `createdAt`          | `created_at`           | `timestamptz` | `NOT NULL`, `DEFAULT NOW()`                   |
+| `updatedAt`          | `updated_at`           | `timestamptz` | `NOT NULL`, `DEFAULT NOW()`, updated on write |
 
 #### `sessions` Table
 
-| Column      | DB Name      | Type           | Constraints                                            |
-| ----------- | ------------ | -------------- | ------------------------------------------------------ |
-| `id`        | `id`         | `uuid`         | Primary key, `DEFAULT gen_random_uuid()`               |
-| `userId`    | `user_id`    | `uuid`         | `NOT NULL`, FK → `users.user_id` (`ON DELETE CASCADE`) |
-| `token`     | `token`      | `varchar(255)` | `UNIQUE`, `NOT NULL`                                   |
-| `expiresAt` | `expires_at` | `timestamptz`  | `NOT NULL`                                             |
-| `createdAt` | `created_at` | `timestamptz`  | `NOT NULL`, `DEFAULT NOW()`                            |
+| Column      | DB Column    | Type          | Constraints                                                    |
+| ----------- | ------------ | ------------- | -------------------------------------------------------------- |
+| `id`        | `id`         | `text`        | Primary key (stores the SHA-256 hash of the raw session token) |
+| `userId`    | `user_id`    | `uuid`        | `NOT NULL`, FK → `users.user_id` (`ON DELETE CASCADE`)         |
+| `expiresAt` | `expires_at` | `timestamptz` | `NOT NULL`                                                     |
+| `createdAt` | `created_at` | `timestamptz` | `NOT NULL`, `DEFAULT NOW()`                                    |
 
-> Deleting a user automatically cascades to delete all of that user's sessions.
+Deleting a user automatically cascades to delete all of that user's sessions.
 
 ### Drizzle Kit Configuration
 
-[drizzle.config.ts](drizzle.config.ts) points Drizzle Kit at the schema file and the target database. Migrations are output to the `./drizzle` directory.
+`drizzle.config.ts` points Drizzle Kit at the schema file and the target database. It uses `dotenv/config` to load `DATABASE_URL` from the active `.env` file before the config is evaluated.
 
 ```ts
+// drizzle.config.ts
+import 'dotenv/config'
+import { defineConfig } from 'drizzle-kit'
+
 export default defineConfig({
   out: './drizzle',
   schema: './server/db/schema.ts',
@@ -181,149 +181,199 @@ export default defineConfig({
 
 ---
 
-## 4. API Endpoint Reference
+## 4. Architecture and Auth Flow
 
-### `POST /api/auth/register`
+Authentication is implemented entirely using Google OAuth 2.0 with PKCE (Proof Key for Code Exchange), managed by the [Arctic](https://arcticjs.dev/) library. There are no password-based accounts. The four server routes that make up the auth system are described below.
 
-Registers a new user account. Validates all required fields, checks for duplicate emails, hashes the password with bcrypt, and persists the record to the `users` table.
+### Route Reference
 
-**Source:** [server/api/auth/register.post.ts](server/api/auth/register.post.ts)
+#### `GET /api/auth/google` — Login Initiation
 
-#### Request
+**Source:** `server/api/auth/google.get.ts`
 
-```
-POST /api/auth/register
-Content-Type: application/json
-```
+Generates a fresh OAuth state value and PKCE code verifier using Arctic, builds the Google authorization URL with scopes `openid`, `profile`, and `email`, appends `access_type=offline` and `prompt=consent` to request a refresh token, and stores the state and code verifier in short-lived (10-minute) HttpOnly cookies before redirecting the browser to Google.
 
-**Body Parameters**
+**Cookies set:**
 
-| Field       | Type     | Required | Description                                                               |
-| ----------- | -------- | -------- | ------------------------------------------------------------------------- |
-| `email`     | `string` | Yes      | The user's email address. Must be unique across all accounts.             |
-| `firstName` | `string` | Yes      | The user's first name.                                                    |
-| `lastName`  | `string` | Yes      | The user's last name.                                                     |
-| `password`  | `string` | Yes      | Plain-text password. Hashed with bcrypt (salt rounds: 12) before storage. |
+| Cookie                       | Value         | MaxAge | Flags                  |
+| ---------------------------- | ------------- | ------ | ---------------------- |
+| `google_oauth_state`         | Random state  | 600 s  | HttpOnly, SameSite=Lax |
+| `google_oauth_code_verifier` | PKCE verifier | 600 s  | HttpOnly, SameSite=Lax |
 
-**Example Request Body**
-
-```json
-{
-  "email": "alex.jones@example.com",
-  "firstName": "Alex",
-  "lastName": "Jones",
-  "password": "securepass123"
-}
-```
-
-#### Responses
-
-**`200 OK` — Registration successful**
-
-```json
-{
-  "success": true,
-  "message": "User created successfully!"
-}
-```
-
-**`400 Bad Request` — Missing required fields**
-
-Returned when any of the four required fields is absent or falsy.
-
-```json
-{
-  "statusCode": 400,
-  "statusMessage": "Missing fields!"
-}
-```
-
-**`400 Bad Request` — Email already registered**
-
-Returned when a user with the given email already exists.
-
-```json
-{
-  "statusCode": 400,
-  "statusMessage": "User already exists!"
-}
-```
-
-#### Security Notes
-
-- Passwords are **never stored in plain text**. They are hashed using `bcrypt` with a salt cost factor of `12` before being written to `password_hash`.
-- The endpoint does not return the created user object, preventing accidental exposure of the password hash or internal IDs.
-- [TODO: Add rate limiting to prevent brute-force registration abuse.]
-- [TODO: Add server-side email format validation.]
-- [TODO: Implement auto sign-in (session creation) after successful registration.]
+**Response:** `302` redirect to `https://accounts.google.com/o/oauth2/v2/auth`
 
 ---
 
-## 5. Testing Strategy
+#### `GET /api/auth/callback` — OAuth Callback
+
+**Source:** `server/api/auth/callback.get.ts`
+
+Handles the redirect back from Google after the user authenticates. The handler immediately deletes both OAuth cookies, then performs several security checks before proceeding.
+
+**Security checks (in order):**
+
+1. If `query.error` is present, redirects to `/login?error=access_denied` without processing.
+2. Validates that `code`, `state`, stored state cookie, and stored code verifier are all present and that `state` matches the stored cookie value. Throws `400` on any mismatch.
+
+**On success:**
+
+1. Calls `google.validateAuthorizationCode(code, codeVerifier)` to exchange the authorization code for tokens.
+2. Decodes the ID token and rejects the request with `401` if `email_verified` is `false`.
+3. Calls `findOrCreateGoogleUser()` to look up or create the user record in the database, passing the refresh token if one was issued.
+4. Generates a cryptographically secure session token: 32 random bytes from `crypto.getRandomValues()`, hex-encoded.
+5. Hashes the raw token with SHA-256 and stores only the hash in the `sessions` table. The raw token is never persisted.
+6. Sets the `app_session_id` cookie with the raw (unhashed) token as an HttpOnly, SameSite=Lax cookie with a 30-day expiry.
+7. Redirects to `/`.
+
+**Error responses:**
+
+| Condition                       | Status                               |
+| ------------------------------- | ------------------------------------ |
+| `query.error` present           | `302` → `/login?error=access_denied` |
+| State mismatch / missing params | `400`                                |
+| `email_verified: false`         | `401`                                |
+| Google rejects the auth code    | `400`                                |
+| Network failure reaching Google | `400`                                |
+| Unexpected error                | `500`                                |
+
+---
+
+#### `GET /api/auth/me` — Session Resolution
+
+**Source:** `server/api/auth/me.get.ts`
+
+Reads the `app_session_id` cookie, hashes the value with SHA-256, and performs a single database query joining `sessions` and `users` filtered by the hashed ID and an expiry check (`expiresAt > now()`).
+
+Returns `{ user: null }` immediately if the cookie is absent. Deletes the cookie and returns `{ user: null }` if the session is not found or has expired. Returns `{ user }` on a valid session, exposing only `userId`, `name`, `email`, and `role` — sensitive fields such as `googleRefreshToken` are never returned.
+
+**Response shape (authenticated):**
+
+```json
+{
+  "user": {
+    "userId": "...",
+    "name": "...",
+    "email": "...",
+    "role": "user"
+  }
+}
+```
+
+**Response shape (unauthenticated):**
+
+```json
+{ "user": null }
+```
+
+---
+
+#### `POST /api/auth/logout` — Logout
+
+**Source:** `server/api/auth/logout.post.ts`
+
+Reads the `app_session_id` cookie, hashes it with SHA-256, and deletes the matching row from the `sessions` table. Then deletes the cookie from the browser response. If no cookie is present, it is a no-op. Always returns `{ success: true, message: "Logged out successfully" }`.
+
+---
+
+### Server Utilities
+
+#### `findOrCreateGoogleUser` — `server/utils/user.ts`
+
+Called by the callback handler after a successful token exchange. Looks up an existing user by `google_id`. If found, returns the existing record. If not found, inserts a new row and returns it via `.returning()`. Accepts an optional `refreshToken` string which is stored in `google_refresh_token` when provided.
+
+#### `GoogleProfile` type — `server/types/auth.ts`
+
+```ts
+export interface GoogleProfile {
+  sub: string
+  email: string
+  name?: string
+  email_verified: boolean
+}
+```
+
+This is the shape of the decoded Google ID token as returned by `arctic.decodeIdToken()`.
+
+---
+
+## 5. Testing
 
 ### Overview
 
-The test suite uses **Vitest** as the test runner and **@nuxt/test-utils** for integration with the Nuxt/Nitro server. Tests are organised into three named projects within [vitest.config.ts](vitest.config.ts), each with its own environment and file glob pattern.
+The test suite uses **Vitest** as the test runner. Tests are split into two categories — unit tests and E2E tests — each targeting different layers of the stack.
 
 ```
 test/
-├── unit/          # Pure unit tests (Vitest node environment)
-├── e2e/           # E2E / integration tests against the live Nitro server
+├── setup.ts                              # Global env var injection (runs before all tests)
+├── tsconfig.json                         # Extends .nuxt/tsconfig.server.json
+├── unit/
 │   └── server/
-│       └── api/
-│           └── auth/
-│               └── register.post.test.ts
-└── nuxt/          # Component / composable tests (Vitest nuxt environment)
+│       ├── api/auth/
+│       │   ├── google.get.test.ts
+│       │   ├── callback.get.test.ts
+│       │   ├── me.get.test.ts
+│       │   └── logout.post.test.ts
+│       └── utils/
+│           └── user.test.ts
+└── e2e/
+    └── server/api/auth/
+        └── auth.flow.test.ts
 ```
-
-### Test Projects
-
-| Project Name | Include Glob                    | Environment | Purpose                                                   |
-| ------------ | ------------------------------- | ----------- | --------------------------------------------------------- |
-| `unit`       | `test/unit/**/*.{test,spec}.ts` | `node`      | Isolated unit tests with no framework overhead            |
-| `e2e`        | `test/e2e/**/*.{test,spec}.ts`  | `node`      | Integration tests against the Nitro API server            |
-| `nuxt`       | `test/nuxt/*.{test,spec}.ts`    | `nuxt`      | Vue component and composable tests via `@nuxt/test-utils` |
 
 ### Running Tests
 
 ```bash
-# Run all test projects
-pnpm vitest run
+# Run all tests once
+pnpm test
 
 # Run in watch mode
 pnpm vitest
-
-# Run a specific project
-pnpm vitest run --project e2e
 
 # Open the Vitest UI
 pnpm vitest --ui
 ```
 
-> The test suite reads `DATABASE_URL` from `.env.test`, so the test database must be running before executing the `e2e` project.
+### Environment Setup — `test/setup.ts`
 
-### Database Isolation Strategy
-
-The E2E tests hit a **real, dedicated PostgreSQL instance** (port `5433`) — there are no mocks. This catches integration issues that in-memory or mocked databases would hide (e.g., constraint violations, type coercions, migration drift).
-
-**Isolation is enforced at the test level** using a `beforeEach` hook that hard-deletes all rows from the `users` table before every individual test:
+The `test/setup.ts` file is loaded before any test module is imported. It sets environment variables directly onto `process.env` to satisfy the module-level checks in the auth route handlers, which read `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `REDIRECT_URI` at import time (top-level code outside `defineEventHandler`).
 
 ```ts
-beforeEach(async () => {
-  await db.delete(users)
-})
+// test/setup.ts
+process.env.GOOGLE_CLIENT_ID = 'test-google-client-id'
+process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret'
+process.env.REDIRECT_URI = 'http://localhost:3000/api/auth/callback'
+process.env.DATABASE_URL = 'postgres://admin:admin@localhost:5433/testing'
+process.env.NODE_ENV = 'test'
 ```
 
-This guarantees each test starts from a clean, deterministic state regardless of execution order, without requiring a full database drop-and-recreate between runs.
+The `vite.config.ts` at the project root provides `~~` and `@@` path alias resolution for unit tests running in the `node` environment outside the Nuxt runtime.
 
-### E2E Test Coverage — `POST /api/auth/register`
+### Unit Tests — Mocking Strategy
 
-The current test file at [test/e2e/server/api/auth/register.post.test.ts](test/e2e/server/api/auth/register.post.test.ts) covers:
+Unit tests import route handlers directly using relative paths (bypassing the `~~` alias shim) and use `vi.mock()` and `vi.stubGlobal()` to replace all external dependencies. This approach is necessary because Nuxt's H3 helpers (`defineEventHandler`, `getCookie`, `setCookie`, `deleteCookie`, `sendRedirect`, `getQuery`, `createError`, `H3Error`) are auto-injected by the Nitro runtime and do not exist in a plain Node test environment.
 
-| Test                  | Description                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `database connection` | Verifies the test database is reachable via a raw `SELECT 1` ping.                                      |
-| `missing all fields`  | Asserts a `400` response with `"Missing fields!"` when the body is empty.                               |
-| `existing user`       | Registers a user, then re-registers with the same email; asserts a `400` with `"User already exists!"`. |
-| `happy path`          | Registers successfully and confirms the record exists in the database via a direct query.               |
-| `password hashing`    | Confirms the stored `password_hash` does not equal the plain-text password.                             |
+**Pattern applied consistently across all unit tests:**
+
+1. `vi.mock('arctic', ...)` — replaces the Arctic library with a factory that returns mock functions for `Google`, `generateState`, `generateCodeVerifier`, `decodeIdToken`, `OAuth2RequestError`, and `ArcticFetchError`.
+2. `vi.mock('~~/server/utils/db', ...)` and `vi.stubGlobal('db', mockDb)` — stubs the Drizzle `db` instance at both the module level and as a Nuxt global. Both are needed because different import patterns may resolve to either.
+3. `vi.mock('~~/server/db/schema', ...)` — provides plain-object column references so Drizzle query builders can run without a real database.
+4. `vi.mock('drizzle-orm', ...)` — replaces `eq`, `and`, and `gt` with lightweight stubs that return serializable objects, making it straightforward to assert which conditions were passed to a query.
+5. `vi.stubGlobal('defineEventHandler', fn => { capturedHandler = fn; return fn })` — intercepts the handler registration so tests can invoke the handler function directly with a controlled mock event object.
+6. Mock event objects (`createMockEvent`) carry `cookies`, `setCookieCalls`, `deletedCookies`, and `redirectUrl` fields that tests assert against after invoking the captured handler.
+
+Because `vi.mock()` calls are hoisted to the top of the file by Vitest's transform, all mock factories are guaranteed to run before the handler module is imported.
+
+### E2E Tests — `test/e2e/server/api/auth/auth.flow.test.ts`
+
+E2E tests use `@nuxt/test-utils/e2e` to boot the actual Nuxt/Nitro server in a subprocess and send real HTTP requests via `$fetch`. Because the server runs as a compiled Nitro bundle, `vi.mock()` calls in the test file have no effect on it.
+
+The E2E suite therefore targets only routes and code paths that are deterministic without a live database connection:
+
+- `GET /api/auth/google` — verifies the redirect to `accounts.google.com` and the presence of HttpOnly state/verifier cookies.
+- `GET /api/auth/callback` — covers error and state-mismatch failure paths that return `400` or redirect to `/login?error=access_denied` before any database interaction occurs.
+- `GET /api/auth/me` — verifies the `{ user: null }` fast-path when no session cookie is present.
+- `POST /api/auth/logout` — verifies the `{ success: true }` response when no session cookie is present.
+
+Happy-path scenarios that require a live database (valid callback exchange, authenticated `/me` response) are covered at the unit test level instead.
+
+> The postgres test database container must be running before E2E tests execute, as `@nuxt/test-utils` boots a full Nuxt server which imports `server/utils/db.ts` and opens a connection pool on startup.

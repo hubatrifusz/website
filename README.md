@@ -1,75 +1,22 @@
-# Nuxt Minimal Starter
+# Website
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A full-stack web application built with Nuxt 4, Drizzle ORM, and Google OAuth 2.0.
 
-## Setup
+## Tech Stack
 
-Make sure to install dependencies:
+- **Nuxt 4** — full-stack framework (Vue frontend + Nitro API server)
+- **Tailwind CSS v4** via Nuxt UI
+- **Drizzle ORM** with PostgreSQL (Docker)
+- **Arctic** — Google OAuth 2.0 with PKCE
+- **Vitest** + `@nuxt/test-utils` for unit and E2E tests
+
+## Quick Start
 
 ```bash
-# npm
-npm install
-
-# pnpm
 pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
+docker compose up -d
+pnpm drizzle-kit migrate
 pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+See [DOCS.md](./DOCS.md) for the full documentation, including environment variable configuration, the database schema, the Google OAuth flow, and the testing strategy.
