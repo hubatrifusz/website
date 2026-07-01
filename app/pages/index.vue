@@ -1,5 +1,8 @@
 <template>
-    <HomeHeroSection/>
-    <HomeAboutUs/>
-    <HomePainPoints/>
+  <div class="space-y-12">
+    <HomeHeroSection />
+    <HomeAboutUs />
+    <HomePainPoints />
+    <HomeReferences />
+  </div>
 </template>

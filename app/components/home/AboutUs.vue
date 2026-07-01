@@ -4,12 +4,15 @@
 
     <article class="teamCard">
       <div class="team_photo">
-        <img src="", alt="The Team"
-        />
+        <img src="" alt="The Team" />
       </div>
       <div class="team_bio">
         <h3 class="team_title">Meet The Team</h3>
-        <p class="team_description">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Rem ullam ex quos laboriosam ipsum suscipit consequuntur cum deleniti! Voluptatum voluptatem temporibus veritatis ut reiciendis consequuntur ipsum ipsam omnis cupiditate alias.</p>
+        <p class="team_description">
+          Lorem ipsum, dolor sit amet consectetur adipisicing elit. Rem ullam ex quos laboriosam
+          ipsum suscipit consequuntur cum deleniti! Voluptatum voluptatem temporibus veritatis ut
+          reiciendis consequuntur ipsum ipsam omnis cupiditate alias.
+        </p>
       </div>
       <div class="team_details">
         <h3 class="workflow">Workflow</h3>
@@ -56,7 +59,6 @@
   overflow: hidden;
   position: relative;
 }
-
 
 .team_photo::before,
 .team_photo::after {
@@ -114,7 +116,6 @@
   color: #555;
   margin: 0;
 }
-
 
 .team_details {
   display: flex;

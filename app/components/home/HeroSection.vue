@@ -1,20 +1,12 @@
 <template>
   <section class="hero">
     <div class="hero__content">
-      <h1 class="hero__title">
-        Big title /<br />Brand slogan
-      </h1>
-      <p class="hero__description">
-        A few paragraphs of how we are,<br />or what we do
-      </p>
+      <h1 class="hero__title">Big title /<br />Brand slogan</h1>
+      <p class="hero__description">A few paragraphs of how we are,<br />or what we do</p>
       <button class="hero__cta">CTA Button</button>
     </div>
   </section>
 </template>
-
-<script setup>
-// No props needed for static hero; extend as needed
-</script>
 
 <style scoped>
 .hero {
@@ -23,7 +15,6 @@
   min-height: 100vh;
   padding: 0 6rem;
   gap: 4rem;
-  background-image: url('/logo.jpg');
   background-size: cover;
   font-family: 'Inter', sans-serif;
 }
@@ -62,7 +53,9 @@
   border: 1.5px solid #111111;
   cursor: pointer;
   letter-spacing: 0.02em;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .hero__cta:hover {

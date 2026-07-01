@@ -3,18 +3,10 @@
     <h2 class="pain-points__heading">Pain points we solve</h2>
 
     <div class="pain-points__grid">
-      <div
-        v-for="category in categories"
-        :key="category.id"
-        class="pain-points__column"
-      >
+      <div v-for="category in categories" :key="category.id" class="pain-points__column">
         <h3 class="pain-points__title">{{ category.title }}</h3>
         <ul class="pain-points__list">
-          <li
-            v-for="point in category.points"
-            :key="point"
-            class="pain-points__item"
-          >
+          <li v-for="point in category.points" :key="point" class="pain-points__item">
             {{ point }}
           </li>
         </ul>
@@ -37,11 +29,7 @@ const categories = [
   {
     id: 2,
     title: 'Growth',
-    points: [
-      'Inconsistent lead qualification',
-      'Long sales cycles',
-      'Poor customer retention',
-    ],
+    points: ['Inconsistent lead qualification', 'Long sales cycles', 'Poor customer retention'],
   },
   {
     id: 3,
