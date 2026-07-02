@@ -10,14 +10,16 @@ type ReferenceCardItem = {
 const items: ReferenceCardItem[] = [
   {
     title: 'E-commerce redesign',
-    description: 'A conversion-focused storefront refresh that clarified product discovery and reduced checkout friction.',
+    description:
+      'A conversion-focused storefront refresh that clarified product discovery and reduced checkout friction.',
     metric: '+32%',
     category: 'Retail',
     tags: ['Checkout', 'UX audit', 'Mobile-first'],
   },
   {
     title: 'Logistics dashboard',
-    description: 'A single operations view for tracking shipments, exceptions, and live status across teams.',
+    description:
+      'A single operations view for tracking shipments, exceptions, and live status across teams.',
     metric: '4 tools',
     category: 'Operations',
     tags: ['Tracking', 'Reporting', 'Automation'],
@@ -31,14 +33,16 @@ const items: ReferenceCardItem[] = [
   },
   {
     title: 'Healthcare portal',
-    description: 'A patient self-service portal designed to simplify appointments, results, and secure messaging.',
+    description:
+      'A patient self-service portal designed to simplify appointments, results, and secure messaging.',
     metric: 'AA',
     category: 'Healthcare',
     tags: ['Accessibility', 'Self-service', 'Secure access'],
   },
   {
     title: 'FinTech mobile app',
-    description: 'A mobile banking experience focused on trust, speed, and low-friction authentication.',
+    description:
+      'A mobile banking experience focused on trust, speed, and low-friction authentication.',
     metric: '4.8★',
     category: 'FinTech',
     tags: ['Auth', 'Performance', 'Mobile'],

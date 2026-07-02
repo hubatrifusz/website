@@ -4,5 +4,6 @@
     <HomeAboutUs />
     <HomePainPoints />
     <HomeReferences />
+    <HomeWorkFlow />
   </div>
 </template>
