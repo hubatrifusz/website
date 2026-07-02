@@ -23,3 +23,11 @@ export const sessions = pgTable('sessions', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+export const verificationTokens = pgTable('verification_tokens', {
+  hashedToken: text('hashed_token').primaryKey(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  userId: uuid('user_id')
+    .references(() => users.userId, { onDelete: 'cascade' })
+    .notNull(),
+})

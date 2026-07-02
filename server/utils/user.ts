@@ -5,11 +5,22 @@ import type { GoogleProfile } from '../types/auth'
 
 export async function findOrCreateGoogleUser(googleUser: GoogleProfile, refreshToken?: string) {
   const user = await db.query.users.findFirst({
-    where: eq(users.googleId, googleUser.sub),
+    where: eq(users.email, googleUser.email),
   })
 
   if (user) {
-    return user
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        name: googleUser.name || user.name,
+        googleId: user.googleId || googleUser.sub,
+        email_verified: googleUser.email_verified,
+        ...(refreshToken ? { googleRefreshToken: refreshToken } : {}),
+      })
+      .where(eq(users.email, googleUser.email))
+      .returning()
+
+    return updatedUser
   }
 
   const [newUser] = await db

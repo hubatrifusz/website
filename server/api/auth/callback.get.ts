@@ -1,7 +1,6 @@
 import * as arctic from 'arctic'
-import { createHash } from 'node:crypto'
-import { sessions } from '~~/server/db/schema'
 import type { GoogleProfile } from '~~/server/types/auth'
+import { createNewUserSession } from '~~/server/utils/session'
 import { findOrCreateGoogleUser } from '~~/server/utils/user'
 
 const clientId = process.env.GOOGLE_CLIENT_ID
@@ -25,7 +24,8 @@ export default defineEventHandler(async (event) => {
   deleteCookie(event, 'google_oauth_code_verifier')
 
   if (query.error) {
-    return sendRedirect(event, '/login?error=access_denied')
+    //TODO: find a proper way to display the error, this only surfaces, when the user denies the Google sync
+    return sendRedirect(event, '/')
   }
 
   if (!code || !storedState || state !== storedState || !storedCodeVerifier) {
@@ -51,27 +51,7 @@ export default defineEventHandler(async (event) => {
 
     const user = await findOrCreateGoogleUser(googleUser, refreshToken)
 
-    const randomBytes = new Uint8Array(32)
-    crypto.getRandomValues(randomBytes)
-    const sessionId = Buffer.from(randomBytes).toString('hex')
-    const hashedSessionId = createHash('sha256').update(sessionId).digest('hex')
-
-    const SESSION_LIFETIME_MS = 1000 * 60 * 60 * 24 * 30
-    const expiresAt = new Date(Date.now() + SESSION_LIFETIME_MS)
-
-    await db.insert(sessions).values({
-      id: hashedSessionId,
-      userId: user!.userId,
-      expiresAt: expiresAt,
-    })
-
-    setCookie(event, 'app_session_id', sessionId, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      expires: expiresAt,
-    })
+    await createNewUserSession(event, user!.userId)
 
     return sendRedirect(event, '/')
   } catch (error) {
